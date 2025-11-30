@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spring Semester Planner - Max</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    
+    // Lucide React icons as inline SVGs
+    const Plus = ({ className }) => (
+      <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+    );
+
+    const ChevronDown = ({ className }) => (
+      <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="6 9 12 15 18 9"></polyline>
+      </svg>
+    );
+
+    const ChevronRight = ({ className }) => (
+      <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="9 18 15 12 9 6"></polyline>
+      </svg>
+    );
+
+    const X = ({ className }) => (
+      <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    );
+
+    const GripVertical = ({ className }) => (
+      <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="9" cy="12" r="1"></circle>
+        <circle cx="9" cy="5" r="1"></circle>
+        <circle cx="9" cy="19" r="1"></circle>
+        <circle cx="15" cy="12" r="1"></circle>
+        <circle cx="15" cy="5" r="1"></circle>
+        <circle cx="15" cy="19" r="1"></circle>
+      </svg>
+    );
+
+    const PriorityPlanner = () => {
+      const defaultTasks = {
+        networking: [],
+        personal: [],
+        internship: [],
+        university: [],
+        fitness: [],
+      };
+
+      const [expandedPriority, setExpandedPriority] = useState('networking');
+      const [tasks, setTasks] = useState(() => {
+        try {
+          const saved = localStorage.getItem('maxPlannerTasks');
+          return saved ? JSON.parse(saved) : defaultTasks;
+        } catch (e) {
+          console.error('Error loading tasks:', e);
+          return defaultTasks;
+        }
+      });
+      
+      const [newTaskText, setNewTaskText] = useState('');
+      const [addingTo, setAddingTo] = useState(null);
+      const [editingTask, setEditingTask] = useState(null);
+      const [editText, setEditText] = useState('');
+      
+      // Save to localStorage whenever tasks change
+      useEffect(() => {
+        try {
+          localStorage.setItem('maxPlannerTasks', JSON.stringify(tasks));
+        } catch (e) {
+          console.error('Error saving tasks:', e);
+        }
+      }, [tasks]);
+      
+      const priorities = [
+        { id: 'networking', name: 'Networking', color: 'bg-red-500', target: '5 outreaches/day' },
+        { id: 'personal', name: 'Personal Time', color: 'bg-purple-500', target: 'Protect evenings' },
+        { id: 'internship', name: 'Internship', color: 'bg-blue-500', target: '~20 hrs/week' },
+        { id: 'university', name: 'University Work', color: 'bg-green-500', target: 'Stay on top of deadlines' },
+        { id: 'fitness', name: 'Fitness', color: 'bg-orange-500', target: '3+ workouts/week' },
+      ];
+      
+      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      
+      const getDateForDay = (dayIndex) => {
+        const startDate = new Date(2024, 10, 30); // November 30, 2024
+        const targetDate = new Date(startDate);
+        targetDate.setDate(startDate.getDate() + dayIndex);
+        
+        const month = targetDate.getMonth() + 1;
+        const date = targetDate.getDate();
+        return `${month}/${date}`;
+      };
+      
+      const addTask = (priority) => {
+        if (!newTaskText.trim()) return;
+        
+        const newTask = {
+          id: Date.now(),
+          text: newTaskText,
+          day: null,
+          completed: false,
+        };
+        
+        setTasks(prev => ({
+          ...prev,
+          [priority]: [...prev[priority], newTask],
+        }));
+        
+        setNewTaskText('');
+        setAddingTo(null);
+      };
+      
+      const deleteTask = (priority, taskId) => {
+        setTasks(prev => ({
+          ...prev,
+          [priority]: prev[priority].filter(t => t.id !== taskId),
+        }));
+      };
+      
+      const editTask = (priority, taskId, newText) => {
+        if (!newText.trim()) return;
+        
+        setTasks(prev => ({
+          ...prev,
+          [priority]: prev[priority].map(t => 
+            t.id === taskId ? { ...t, text: newText } : t
+          ),
+        }));
+        
+        setEditingTask(null);
+        setEditText('');
+      };
+      
+      const startEditing = (taskId, currentText) => {
+        setEditingTask(taskId);
+        setEditText(currentText);
+      };
+      
+      const toggleTask = (priority, taskId) => {
+        setTasks(prev => ({
+          ...prev,
+          [priority]: prev[priority].map(t => 
+            t.id === taskId ? { ...t, completed: !t.completed } : t
+          ),
+        }));
+      };
+      
+      const assignTaskToDay = (priority, taskId, day) => {
+        setTasks(prev => ({
+          ...prev,
+          [priority]: prev[priority].map(t => 
+            t.id === taskId ? { ...t, day } : t
+          ),
+        }));
+      };
+      
+      const getTasksForDay = (day) => {
+        const dayTasks = [];
+        Object.entries(tasks).forEach(([priority, taskList]) => {
+          taskList.forEach(task => {
+            if (task.day === day) {
+              dayTasks.push({ ...task, priority });
+            }
+          });
+        });
+        return dayTasks;
+      };
+      
+      const getNetworkingCount = () => {
+        return tasks.networking.filter(t => t.completed).length;
+      };
+      
+      const getPriorityColor = (priorityId) => {
+        return priorities.find(p => p.id === priorityId)?.color || 'bg-gray-500';
+      };
+
+      const clearAllData = () => {
+        if (confirm('Are you sure you want to clear all tasks and reset the planner? This cannot be undone.')) {
+          localStorage.removeItem('maxPlannerTasks');
+          setTasks(defaultTasks);
+        }
+      };
+
+      const exportData = () => {
+        const dataStr = JSON.stringify(tasks, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'planner-backup.json';
+        link.click();
+        URL.revokeObjectURL(url);
+      };
+
+      const importData = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const imported = JSON.parse(e.target.result);
+            setTasks(imported);
+            alert('Data imported successfully!');
+          } catch (error) {
+            alert('Error importing data. Please check the file format.');
+          }
+        };
+        reader.readAsText(file);
+      };
+
+      return (
+        <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+          <div className="max-w-7xl mx-auto">
+            {/* Header */}
+            <div className="mb-6 md:mb-8">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-2">
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Spring Semester Planner</h1>
+                <div className="flex gap-2 text-xs md:text-sm">
+                  <button
+                    onClick={exportData}
+                    className="text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Export Backup
+                  </button>
+                  <label className="text-blue-600 hover:text-blue-800 underline cursor-pointer">
+                    Import Backup
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={importData}
+                      className="hidden"
+                    />
+                  </label>
+                  <button
+                    onClick={clearAllData}
+                    className="text-red-600 hover:text-red-800 underline"
+                  >
+                    Reset All
+                  </button>
+                </div>
+              </div>
+              <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+                <div className="bg-red-100 border-2 border-red-500 px-3 md:px-4 py-2 rounded-lg">
+                  <span className="font-semibold text-red-900 text-sm md:text-base">Networking Progress: </span>
+                  <span className="text-xl md:text-2xl font-bold text-red-600">{getNetworkingCount()}</span>
+                  <span className="text-red-700 text-sm md:text-base"> / 300 total goal</span>
+                </div>
+                <p className="text-sm md:text-base text-gray-600">Last semester - make it count! 🎓</p>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">💾 Auto-saves to your browser</p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+              {/* Left Sidebar - Priorities */}
+              <div className="lg:col-span-1 space-y-3">
+                <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4">Priorities</h2>
+                
+                {priorities.map(priority => (
+                  <div key={priority.id} className="bg-white rounded-lg shadow-sm border border-gray-200">
+                    {/* Priority Header */}
+                    <button
+                      onClick={() => setExpandedPriority(expandedPriority === priority.id ? null : priority.id)}
+                      className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${priority.color}`} />
+                        <div className="text-left">
+                          <h3 className="font-semibold text-gray-900 text-sm md:text-base">{priority.name}</h3>
+                          <p className="text-xs text-gray-500">{priority.target}</p>
+                        </div>
+                      </div>
+                      {expandedPriority === priority.id ? (
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <ChevronRight className="w-5 h-5 text-gray-400" />
+                      )}
+                    </button>
+
+                    {/* Expanded Task List */}
+                    {expandedPriority === priority.id && (
+                      <div className="px-4 pb-4 space-y-2 border-t border-gray-100">
+                        <div className="pt-3 space-y-2">
+                          {tasks[priority.id].filter(t => !t.day).length === 0 && (
+                            <p className="text-sm text-gray-400 text-center py-2">No unscheduled tasks</p>
+                          )}
+                          {tasks[priority.id].filter(t => !t.day).map(task => (
+                            <div
+                              key={task.id}
+                              className="group flex items-start gap-2 p-2 hover:bg-gray-50 rounded border border-gray-200"
+                            >
+                              <GripVertical className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                              <input
+                                type="checkbox"
+                                checked={task.completed}
+                                onChange={() => toggleTask(priority.id, task.id)}
+                                className="mt-1 flex-shrink-0"
+                              />
+                              {editingTask === task.id ? (
+                                <input
+                                  type="text"
+                                  value={editText}
+                                  onChange={(e) => setEditText(e.target.value)}
+                                  onKeyPress={(e) => {
+                                    if (e.key === 'Enter') editTask(priority.id, task.id, editText);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Escape') setEditingTask(null);
+                                  }}
+                                  onBlur={() => editTask(priority.id, task.id, editText)}
+                                  className="flex-1 px-2 py-1 text-sm border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  autoFocus
+                                />
+                              ) : (
+                                <span
+                                  onClick={() => startEditing(task.id, task.text)}
+                                  className={`flex-1 text-sm cursor-pointer ${task.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}
+                                >
+                                  {task.text}
+                                </span>
+                              )}
+                              <button
+                                onClick={() => deleteTask(priority.id, task.id)}
+                                className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 flex-shrink-0"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+
+                          {/* Assigned Tasks */}
+                          {tasks[priority.id].filter(t => t.day).length > 0 && (
+                            <div className="pt-2 border-t border-gray-100">
+                              <p className="text-xs font-semibold text-gray-500 mb-2">Scheduled:</p>
+                              {tasks[priority.id].filter(t => t.day).map(task => (
+                                <div
+                                  key={task.id}
+                                  className="group flex items-start gap-2 p-2 hover:bg-gray-50 rounded border border-gray-200 mb-1"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={task.completed}
+                                    onChange={() => toggleTask(priority.id, task.id)}
+                                    className="mt-1 flex-shrink-0"
+                                  />
+                                  <div className="flex-1">
+                                    {editingTask === task.id ? (
+                                      <input
+                                        type="text"
+                                        value={editText}
+                                        onChange={(e) => setEditText(e.target.value)}
+                                        onKeyPress={(e) => {
+                                          if (e.key === 'Enter') editTask(priority.id, task.id, editText);
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Escape') setEditingTask(null);
+                                        }}
+                                        onBlur={() => editTask(priority.id, task.id, editText)}
+                                        className="w-full px-2 py-1 text-sm border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        autoFocus
+                                      />
+                                    ) : (
+                                      <span
+                                        onClick={() => startEditing(task.id, task.text)}
+                                        className={`text-sm cursor-pointer ${task.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}
+                                      >
+                                        {task.text}
+                                      </span>
+                                    )}
+                                    <p className="text-xs text-gray-500 capitalize">{task.day}</p>
+                                  </div>
+                                  <button
+                                    onClick={() => assignTaskToDay(priority.id, task.id, null)}
+                                    className="opacity-0 group-hover:opacity-100 text-blue-500 hover:text-blue-700 text-xs flex-shrink-0"
+                                  >
+                                    Unschedule
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Add Task */}
+                        {addingTo === priority.id ? (
+                          <div className="flex gap-2 pt-2">
+                            <input
+                              type="text"
+                              value={newTaskText}
+                              onChange={(e) => setNewTaskText(e.target.value)}
+                              onKeyPress={(e) => e.key === 'Enter' && addTask(priority.id)}
+                              placeholder="New task..."
+                              className="flex-1 px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => addTask(priority.id)}
+                              className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                            >
+                              Add
+                            </button>
+                            <button
+                              onClick={() => setAddingTo(null)}
+                              className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setAddingTo(priority.id)}
+                            className="w-full mt-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded flex items-center gap-2 border border-dashed border-gray-300"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Add task
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Right Side - Weekly View */}
+              <div className="lg:col-span-2">
+                <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4">This Week</h2>
+                <div className="space-y-3">
+                  {days.map((day, index) => {
+                    const dayTasks = getTasksForDay(day);
+                    return (
+                      <div key={day} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="font-semibold text-gray-900 capitalize">{day}</h3>
+                          <span className="text-sm text-gray-500 font-medium">{getDateForDay(index)}</span>
+                        </div>
+                        
+                        {dayTasks.length > 0 ? (
+                          <div className="space-y-2">
+                            {dayTasks.map(task => (
+                              <div key={task.id} className="group flex items-start gap-2 p-2 hover:bg-gray-50 rounded">
+                                <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${getPriorityColor(task.priority)}`} />
+                                <input
+                                  type="checkbox"
+                                  checked={task.completed}
+                                  onChange={() => toggleTask(task.priority, task.id)}
+                                  className="mt-1 flex-shrink-0"
+                                />
+                                {editingTask === task.id ? (
+                                  <input
+                                    type="text"
+                                    value={editText}
+                                    onChange={(e) => setEditText(e.target.value)}
+                                    onKeyPress={(e) => {
+                                      if (e.key === 'Enter') editTask(task.priority, task.id, editText);
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Escape') setEditingTask(null);
+                                    }}
+                                    onBlur={() => editTask(task.priority, task.id, editText)}
+                                    className="flex-1 px-2 py-1 text-sm border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    autoFocus
+                                  />
+                                ) : (
+                                  <span
+                                    onClick={() => startEditing(task.id, task.text)}
+                                    className={`flex-1 text-sm cursor-pointer ${task.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}
+                                  >
+                                    {task.text}
+                                  </span>
+                                )}
+                                <button
+                                  onClick={() => assignTaskToDay(task.priority, task.id, null)}
+                                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 text-xs flex-shrink-0"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-6 md:py-8 border-2 border-dashed border-gray-200 rounded">
+                            <p className="text-gray-400 text-sm mb-2">No tasks scheduled</p>
+                            <p className="text-xs text-gray-400">Use the dropdown below to add tasks</p>
+                          </div>
+                        )}
+
+                        {/* Quick Add to Day */}
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <select
+                            onChange={(e) => {
+                              const [priority, taskId] = e.target.value.split('-');
+                              if (priority && taskId) {
+                                assignTaskToDay(priority, parseInt(taskId), day);
+                                e.target.value = '';
+                              }
+                            }}
+                            className="w-full text-sm border border-gray-300 rounded px-2 py-1 text-gray-600"
+                          >
+                            <option value="">+ Add task to {day}</option>
+                            {Object.entries(tasks).map(([priority, taskList]) => {
+                              const unscheduledTasks = taskList.filter(t => !t.day);
+                              if (unscheduledTasks.length === 0) return null;
+                              return (
+                                <optgroup key={priority} label={priorities.find(p => p.id === priority)?.name}>
+                                  {unscheduledTasks.map(task => (
+                                    <option key={task.id} value={`${priority}-${task.id}`}>
+                                      {task.text}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              );
+                            })}
+                          </select>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    ReactDOM.render(<PriorityPlanner />, document.getElementById('root'));
+  </script>
+</body>
+</html>
